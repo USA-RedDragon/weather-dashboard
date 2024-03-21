@@ -12,12 +12,23 @@ def get_radar_scan_time(station, last: int):
     s3 = boto3.resource('s3', config=Config(signature_version=botocore.UNSIGNED, user_agent_extra='Resource'))
     bucket = s3.Bucket('noaa-nexrad-level2')
     # Search for the latest file matching the format "yyyy/mm/dd/{station}/{station}{time}_V06"
-    utcdate = datetime.datetime.utcnow()
-    prefix = f"{utcdate.strftime('%Y/%m/%d')}/{station}/{station}{utcdate.strftime('%Y%m%d')}_"
+    utcdate = datetime.datetime.now(datetime.UTC)
+    prefix = f"{utcdate.strftime('%Y/%m/%d')}/{station}/{station}{utcdate.strftime('%Y%m%d_%H')}"
     # Strip out any objects whose key ends in _MDM
     objs = [obj for obj in list(bucket.objects.filter(Prefix=prefix)) if not obj.key.endswith('_MDM')]
     if len(objs) == 0:
-        raise ValueError("No radar scans found")
+        # This could be a new hour, so try the previous hour
+        utcdate -= datetime.timedelta(hours=1)
+        prefix = f"{utcdate.strftime('%Y/%m/%d')}/{station}/{station}{utcdate.strftime('%Y%m%d_%H')}"
+        objs = [obj for obj in list(bucket.objects.filter(Prefix=prefix)) if not obj.key.endswith('_MDM')]
+        if len(objs) == 0:
+            # Is this a new day?
+            utcdate += datetime.timedelta(hours=1)
+            utcdate -= datetime.timedelta(days=1)
+            prefix = f"{utcdate.strftime('%Y/%m/%d')}/{station}/{station}{utcdate.strftime('%Y%m%d_%H')}"
+            objs = [obj for obj in list(bucket.objects.filter(Prefix=prefix)) if not obj.key.endswith('_MDM')]
+            if len(objs) == 0:
+                raise ValueError("No radar scans found")
     objs.sort(key=lambda x: x.key)
     if last >= len(objs):
         raise ValueError("Invalid last value")
