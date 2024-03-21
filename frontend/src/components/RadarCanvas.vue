@@ -65,15 +65,7 @@ export default defineComponent({
       return;
     }
     this.context = node.getContext('2d');
-    this.draw().then(() => {
-      if (!this.scannerCancel) {
-        const ts = (this.currentTimestamp as unknown) as number;
-        this.scannerCancel = radar.listenForNewScan('ktlx', ts, (scan: radarScan) => {
-          this.$emit('timestamp', 'Loading...');
-          this.draw(scan);
-        });
-      }
-    });
+    this.draw();
   },
   watch: {
     sweep: function() {
@@ -108,6 +100,17 @@ export default defineComponent({
       this.currentTimestamp = new Date(radarData.timestamp * 1000);
       this.$emit('timestamp', this.currentTimestamp);
       this.drawRadar(radarData);
+
+      if (this.scannerCancel) {
+        this.scannerCancel();
+      }
+      if (!this.scannerCancel) {
+        const ts = (this.currentTimestamp as unknown) as number;
+        this.scannerCancel = radar.listenForNewScan('ktlx', this.sweep, ts, (scan: radarScan) => {
+          this.$emit('timestamp', 'Loading...');
+          this.draw(scan);
+        });
+      }
     },
     drawRadar(data: radarScan) {
       if (!this.context) {

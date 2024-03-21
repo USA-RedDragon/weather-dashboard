@@ -36,11 +36,11 @@ class RadarListener extends EventTarget {
 }
 
 export const listenForNewScan = (
-  station: string, startingTimestamp: number, callback: (_scan: radarScan) => void,
+  station: string, sweep: number, startingTimestamp: number, callback: (_scan: radarScan) => void,
 ): () => void => {
   const listener = new RadarListener(station, startingTimestamp);
   const wrappedCb = () => {
-    getScan(station).then(callback);
+    getScan(station, sweep).then(callback);
   };
   listener.addEventListener('scan', wrappedCb);
   listener.start();
@@ -49,7 +49,7 @@ export const listenForNewScan = (
   };
 };
 
-export const getScan = async (station: string, sweep: number = 0.0): Promise<radarScan> => {
+export const getScan = async (station: string, sweep: number): Promise<radarScan> => {
   // Fire and forget
   clearOldCaches();
 
