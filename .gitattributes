@@ -1,2 +1,2 @@
-public/layout/** linguist-vendored
-public/themes/** linguist-vendored
+frontend/public/layout/** linguist-vendored
+frontend/public/themes/** linguist-vendored
