@@ -139,7 +139,7 @@ export default defineComponent({
       // data is a 2-dimensional array where the index corresponds to the polygon at the same index in xlocs and ylocs
       //
       // data = [
-      //   [0.5],
+      //   [0.3, 0.5],
       // ]
       // This results in the following:
       // - The polygon at (0, 1) has a value of 0.5
