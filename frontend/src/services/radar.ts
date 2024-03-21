@@ -8,6 +8,47 @@ type radarScan = {
   timestamp: number;
 }
 
+class RadarListener extends EventTarget {
+  private timestamp: number;
+  private station: string;
+
+  constructor(station: string, startingTimestamp: number) {
+    super();
+    this.station = station;
+    this.timestamp = startingTimestamp;
+  }
+
+  async start() {
+    setInterval(() => {
+      this.checkForNewScan();
+    }, 5000);
+  }
+
+  checkForNewScan() {
+    axios.get(`/api/radar/${this.station}/scan/0`).then((resp) => {
+      resp.data.timestamp *= 1000;
+      if (resp.data.timestamp > this.timestamp) {
+        this.timestamp = resp.data.timestamp;
+        this.dispatchEvent(new Event('scan'));
+      }
+    });
+  }
+}
+
+export const listenForNewScan = (
+  station: string, startingTimestamp: number, callback: (_scan: radarScan) => void,
+): () => void => {
+  const listener = new RadarListener(station, startingTimestamp);
+  const wrappedCb = () => {
+    getScan(station).then(callback);
+  };
+  listener.addEventListener('scan', wrappedCb);
+  listener.start();
+  return () => {
+    listener.removeEventListener('scan', wrappedCb);
+  };
+};
+
 export const getScan = async (station: string, sweep: number = 0.0): Promise<radarScan> => {
   // Fire and forget
   clearOldCaches();

@@ -3,7 +3,7 @@
     <Card>
       <template #title>Current Conditions</template>
       <template #content>
-        <MapChart state="OK" :data="[]" :options="{}" />
+        <MapChart radar state="OK" :data="[]" :options="{}" />
       </template>
     </Card>
   </div>

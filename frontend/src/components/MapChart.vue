@@ -1,22 +1,39 @@
 <template>
-  <canvas></canvas>
+  <div>
+    <p v-if="radar">Radar Scan: {{currentTimestamp.toString()}}</p>
+    <div class="layered">
+      <canvas></canvas>
+      <RadarCanvas
+        v-if="radar"
+        @timestamp="updateTimestamp"
+        :projection="projection"
+        :sweep="sweep"
+        :width="width"
+        :height="height" />
+    </div>
+    <div v-if="radar">
+      <InputText v-model.number="sweep" />
+      <Slider v-model="sweep" :step="1" :max="7" class="w-14rem"></Slider>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
 import * as d3 from 'd3';
-import { getGeoJSON as geoJSON } from '../services/geojson';
-import * as radar from '../services/radar';
-import type radarScan from '../services/radar';
+import InputText from 'primevue/inputtext';
+import Slider from 'primevue/slider';
+import { getGeoJSON } from '../services/geojson';
+import RadarCanvas from './RadarCanvas.vue';
 
 type data = {
   height: number;
   width: number;
+  sweep: number;
+  currentTimestamp: string | Date;
   projection: d3.GeoProjection;
   geoGenerator: d3.GeoPath | null;
   canvas: d3.Selection<d3.BaseType, unknown, HTMLElement, any> | null;
-  detachedContainer: HTMLElement;
-  dataContainer: d3.Selection<HTMLElement, unknown, null, undefined>;
   context: CanvasRenderingContext2D | null;
 }
 
@@ -28,7 +45,11 @@ type drawGeoJSONOptions = {
 }
 
 export default defineComponent({
-  components: { },
+  components: {
+    InputText,
+    Slider,
+    RadarCanvas,
+  },
   props: {
     data: {
       type: Object,
@@ -48,17 +69,20 @@ export default defineComponent({
       required: false,
       default: '',
     },
+    radar: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
   },
   data: (): data => {
-    const detachedContainer = document.createElement('custom');
-
     return {
       height: 1080,
       width: 1920,
+      sweep: 0,
       projection: d3.geoEquirectangular(),
       geoGenerator: null,
-      detachedContainer,
-      dataContainer: d3.select(detachedContainer),
+      currentTimestamp: 'Loading...',
       canvas: null,
       context: null,
     };
@@ -77,71 +101,20 @@ export default defineComponent({
       return;
     }
     this.context = node.getContext('2d');
-
-    if (this.country) {
-      this.drawCountry();
-    } else if (this.state) {
-      this.drawState();
-    }
+    this.draw();
   },
   methods: {
-    drawRadar(data: radarScan) {
-      if (!this.geoGenerator) {
-        console.error('geoGenerator is null');
-        return;
+    async draw() {
+      this.context?.clearRect(0, 0, this.width, this.height);
+      if (this.country) {
+        await this.drawCountry();
+      } else if (this.state) {
+        await this.drawState();
       }
-
-      if (!this.context) {
-        console.error('context is null');
-        return;
-      }
-
-      // xlocs and ylocs are 2-dimensional arrays where:
-      // - (X[i, j], Y[i, j]) is the bottom left of the polgon
-      // - (X[i, j + 1], Y[i, j + 1]) is the bottom right of the polygon
-      // - (X[i + 1, j], Y[i + 1, j]) is the top left of the polygon
-      // - (X[i + 1, j + 1], Y[i + 1, j + 1]) is the top right of the polygon
-      //
-      // X = [
-      //   [10, 20],
-      // ]
-      // Y = [
-      //   [40, 50],
-      // ]
-      // This results in the following quadrilateral polygon:
-      // - (10, 40) bottom left
-      // - (20, 40) bottom right
-      // - (10, 50) top left
-      // - (20, 50) top right
-
-      // data is a 2-dimensional array where the index corresponds to the polygon at the same index in xlocs and ylocs
-      //
-      // data = [
-      //   [0.5],
-      // ]
-      // This results in the following:
-      // - The polygon at (0, 1) has a value of 0.5
-
-      for (let i = 0; i < data.xlocs.length-1; i++) {
-        for (let j = 0; j < data.ylocs.length-1; j++) {
-          const bottomLeft = this.projection([data.xlocs[i][j], data.ylocs[i][j]]);
-          const bottomRight = this.projection([data.xlocs[i][j + 1], data.ylocs[i][j + 1]]);
-          const topLeft = this.projection([data.xlocs[i + 1][j], data.ylocs[i + 1][j]]);
-          const topRight = this.projection([data.xlocs[i + 1][j + 1], data.ylocs[i + 1][j + 1]]);
-          const value = data.data[i][j];
-
-          if (value) {
-            this.context.beginPath();
-            this.context.moveTo(bottomLeft[0], bottomLeft[1]);
-            this.context.lineTo(bottomRight[0], bottomRight[1]);
-            this.context.lineTo(topRight[0], topRight[1]);
-            this.context.lineTo(topLeft[0], topLeft[1]);
-            this.context.lineTo(bottomLeft[0], bottomLeft[1]);
-            this.context.fillStyle = radar.colormap(value);
-            this.context.fill();
-          }
-        }
-      }
+    },
+    updateTimestamp(ts: string | Date) {
+      console.log('Updating timestamp to', ts);
+      this.currentTimestamp = ts;
     },
     drawGeoJSON(options: drawGeoJSONOptions) {
       if (!this.geoGenerator) {
@@ -165,29 +138,27 @@ export default defineComponent({
 
       this.context.restore();
     },
-    drawCountry() {
+    drawCountry(): Promise<void> {
       // Center and zoom on the US
       this.projection = this.projection.center([-111, 48]).scale(1800);
       this.geoGenerator = d3.geoPath().projection(this.projection).context(this.context);
-      this.drawFeatures();
+      return this.drawFeatures();
     },
-    async drawState() {
+    drawState(): Promise<void> {
       // Center and zoom on the US
       this.projection = this.projection.center([-101, 37]).scale(12000);
       this.geoGenerator = d3.geoPath()
         .projection(this.projection)
         .context(this.context);
 
-      const oklahomaCountiesPromise = geoJSON('oklahomaCounties');
-      const oklahomaLakesPromise = geoJSON('oklahomaLakes');
-      const oklahomaStreamsPromise = geoJSON('oklahomaStreams');
-      const radarPromise = radar.getScan('ktlx');
+      const oklahomaCountiesPromise = getGeoJSON('oklahomaCounties');
+      const oklahomaLakesPromise = getGeoJSON('oklahomaLakes');
+      const oklahomaStreamsPromise = getGeoJSON('oklahomaStreams');
 
-      // Callback hell to allow parallel loading of geojson but
-      // still draw them in the correct order
-      return this.drawFeatures(true).then(() => {
-        // Then we can draw the counties
-        oklahomaCountiesPromise.then((oklahomaCounties) => {
+      return this.drawFeatures().then(() => {
+        // Callback hell to allow parallel loading of geojson but
+        // still draw them in the correct order
+        return oklahomaCountiesPromise.then((oklahomaCounties) => {
           this.drawGeoJSON({
             stroke: 'rgba(0, 0, 0, 1)',
             strokeWidth: '1',
@@ -196,7 +167,7 @@ export default defineComponent({
           });
 
           // Then we can draw the lakes
-          oklahomaLakesPromise.then((oklahomaLakes) => {
+          return oklahomaLakesPromise.then((oklahomaLakes) => {
             this.drawGeoJSON({
               stroke: 'rgba(30, 144, 255, 1)',
               strokeWidth: '0.1',
@@ -204,40 +175,35 @@ export default defineComponent({
               data: oklahomaLakes,
             });
 
-            // Then we can draw the streams
-            oklahomaStreamsPromise.then((oklahomaStreams) => {
+            // Finally we can draw the streams
+            return oklahomaStreamsPromise.then((oklahomaStreams) => {
               this.drawGeoJSON({
                 stroke: 'rgba(30, 144, 255, 0.8)',
                 strokeWidth: '0.8',
                 fill: 'rgba(0, 0, 0, 0)',
                 data: oklahomaStreams,
               });
-
-              // Finally we can draw the radar on top
-              radarPromise.then((radar) => {
-                this.drawRadar(radar);
-              });
             });
           });
         });
       });
     },
-    async drawFeatures(nolakes: boolean = false) {
-      const costLinePromise = geoJSON('coastline');
+    drawFeatures(nolakes: boolean = false): Promise<void> {
+      const costLinePromise = getGeoJSON('coastline');
       let riversPromise = new Promise((resolve) => {
         resolve(null);
       });
       if (!nolakes) {
-        riversPromise = geoJSON('rivers');
+        riversPromise = getGeoJSON('rivers');
       }
-      const statesPromise = geoJSON('states');
+      const statesPromise = getGeoJSON('states');
       let lakesPromise = new Promise((resolve) => {
         resolve(null);
       });
       if (!nolakes) {
-        lakesPromise = geoJSON('lakes');
+        lakesPromise = getGeoJSON('lakes');
       }
-      const freewaysPromise = geoJSON('freeways');
+      const freewaysPromise = getGeoJSON('freeways');
 
       return costLinePromise.then((coastline) => {
         this.drawGeoJSON({
@@ -247,7 +213,7 @@ export default defineComponent({
           data: coastline,
         });
 
-        riversPromise.then((rivers) => {
+        return riversPromise.then((rivers) => {
           if (rivers) {
             this.drawGeoJSON({
               stroke: 'rgba(30, 144, 255, 1)',
@@ -257,7 +223,7 @@ export default defineComponent({
             });
           }
 
-          statesPromise.then((states) => {
+          return statesPromise.then((states) => {
             this.drawGeoJSON({
               stroke: 'rgba(0, 0, 0, 1)',
               fill: 'rgba(0, 0, 0, 0)',
@@ -265,7 +231,7 @@ export default defineComponent({
               data: states,
             });
 
-            lakesPromise.then((lakes) => {
+            return lakesPromise.then((lakes) => {
               if (lakes) {
                 this.drawGeoJSON({
                   stroke: 'rgba(30, 144, 255, 1)',
@@ -275,7 +241,7 @@ export default defineComponent({
                 });
               }
 
-              freewaysPromise.then((freeways) => {
+              return freewaysPromise.then((freeways) => {
                 this.drawGeoJSON({
                   stroke: 'rgb(214, 113, 69)',
                   fill: 'rgba(0, 0, 0, 0)',
@@ -293,7 +259,17 @@ export default defineComponent({
 </script>
 
 <style scoped>
-canvas {
+.layered {
   width: 100%;
+  display: grid;
+}
+
+.layered canvas {
+  width: 100%;
+}
+
+.layered > * {
+  grid-column-start: 1;
+  grid-row-start: 1;
 }
 </style>
