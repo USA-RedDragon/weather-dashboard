@@ -7,7 +7,7 @@
       <!-- @vue-expect-error PrimeVue doesn't have the proper
           type, only Nullable<string>, but passing a string
           value breaks the component -->
-      <InputText v-model="sweep" class="w-14rem"></InputText>
+      <InputText v-model.number="sweep" class="w-14rem"></InputText>
       <Slider v-model="sweep" :step="1" :max="7" class="w-14rem"></Slider>
       <br />
     </div>
@@ -119,7 +119,6 @@ export default defineComponent({
       }
     },
     updateTimestamp(ts: string | Date) {
-      console.log('Updating timestamp to', ts);
       this.currentTimestamp = ts;
     },
     drawGeoJSON(options: drawGeoJSONOptions) {
