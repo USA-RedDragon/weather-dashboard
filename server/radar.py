@@ -4,13 +4,17 @@ import re
 import boto3
 import botocore
 from botocore.client import Config
+from metpy.units import units
+import msgpack
+import numpy as np
+
+s3Resource = boto3.resource('s3', config=Config(signature_version=botocore.UNSIGNED, user_agent_extra='Resource'))
+s3Client = boto3.client('s3', config=Config(signature_version=botocore.UNSIGNED, user_agent_extra='Client'))
+bucket = s3Resource.Bucket('noaa-nexrad-level2')
 
 def get_radar_scan_time(station, last: int):
     # last is the offset from the most recent scan
-
     station = station.upper()
-    s3 = boto3.resource('s3', config=Config(signature_version=botocore.UNSIGNED, user_agent_extra='Resource'))
-    bucket = s3.Bucket('noaa-nexrad-level2')
     # Search for the latest file matching the format "yyyy/mm/dd/{station}/{station}{time}_V06"
     utcdate = datetime.datetime.now(datetime.UTC)
     prefix = f"{utcdate.strftime('%Y/%m/%d')}/{station}/{station}{utcdate.strftime('%Y%m%d_%H')}"
@@ -45,15 +49,50 @@ def extract_timestamp(obj, station):
 
 def get_specific_radar_scan(station: str, timestamp: int):
     station = station.upper()
-    s3 = boto3.client('s3', config=Config(signature_version=botocore.UNSIGNED, user_agent_extra='Client'))
     # key is yyyy/mm/dd/{station}/{station}YYYYMMDD_HHMMSS_V06
     time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
     key = f"{time.strftime('%Y/%m/%d')}/{station}/{station}{time.strftime('%Y%m%d_%H%M%S')}_V06"
     try:
-        obj = s3.get_object(Bucket='noaa-nexrad-level2', Key=key)
+        obj = s3Client.get_object(Bucket='noaa-nexrad-level2', Key=key)
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == 'NoSuchKey':
             raise ValueError("Radar scan not found")
         else:
             raise
     return obj
+
+def process(f, sweep, timestamp):
+    # First item in ray is header, which has azimuth angle
+    az = np.array([ray[0].az_angle for ray in f.sweeps[sweep]])
+    diff = np.diff(az)
+    crossed = diff < -180
+    diff[crossed] += 360.
+    avg_spacing = diff.mean()
+
+    # Convert mid-point to edge
+    az = (az[:-1] + az[1:]) / 2
+    az[crossed] += 180.
+
+    # Concatenate with overall start and end of data we calculate using the average spacing
+    az = np.concatenate(([az[0] - avg_spacing], az, [az[-1] + avg_spacing]))
+    az = units.Quantity(az, 'degrees')
+
+    ref_hdr = f.sweeps[sweep][0][4][b'REF'][0]
+    ref_range = (np.arange(ref_hdr.num_gates + 1) - 0.5) * ref_hdr.gate_width + ref_hdr.first_gate
+    ref_range = units.Quantity(ref_range, 'kilometers')
+    ref = np.array([ray[4][b'REF'][1] for ray in f.sweeps[sweep]])
+
+    # Extract central longitude and latitude from file
+    cent_lon = f.sweeps[0][0][1].lon
+    cent_lat = f.sweeps[0][0][1].lat
+
+    return msgpack.packb(
+        {
+        'cent_lon': cent_lon,
+        'cent_lat': cent_lat,
+        'az': az.m_as('degrees').tolist(),
+        'ref_range': ref_range.m_as('meters').tolist(),
+        'data': ref.tolist(),
+        'timestamp': timestamp,
+        }
+    ) 

@@ -1,17 +1,19 @@
 import calendar
+import datetime
 import os
 import logging
+import time
 
 from flask import Flask, send_file, jsonify
 import metpy
 from metpy.io import Level2File
-from metpy.units import units
-import msgpack
-import numpy as np
 
-from .radar import get_radar_scan_time, extract_timestamp, get_specific_radar_scan
+
+from .radar import get_radar_scan_time, extract_timestamp, get_specific_radar_scan, process
+from .cache import Cache
 
 app = Flask(__name__)
+cache = Cache()
 
 dataTypes = ["coastline", "states", "lakes", "rivers", "freeways", "oklahomaCounties", "oklahomaLakes", "oklahomaStreams"]
 
@@ -43,46 +45,20 @@ def get_radar_station_last_scan(station, last):
 
 @app.route("/api/radar/<station>/<int:sweep>/<int:timestamp>", methods=["GET"])
 def get_radar(station, sweep, timestamp):
-    obj = get_specific_radar_scan(station, timestamp)
-    f = Level2File(obj['Body'])
-
-    # First item in ray is header, which has azimuth angle
-    az = np.array([ray[0].az_angle for ray in f.sweeps[sweep]])
-    diff = np.diff(az)
-    crossed = diff < -180
-    diff[crossed] += 360.
-    avg_spacing = diff.mean()
-
-    # Convert mid-point to edge
-    az = (az[:-1] + az[1:]) / 2
-    az[crossed] += 180.
-
-    # Concatenate with overall start and end of data we calculate using the average spacing
-    az = np.concatenate(([az[0] - avg_spacing], az, [az[-1] + avg_spacing]))
-    az = units.Quantity(az, 'degrees')
-
-    ref_hdr = f.sweeps[sweep][0][4][b'REF'][0]
-    ref_range = (np.arange(ref_hdr.num_gates + 1) - 0.5) * ref_hdr.gate_width + ref_hdr.first_gate
-    ref_range = units.Quantity(ref_range, 'kilometers')
-    ref = np.array([ray[4][b'REF'][1] for ray in f.sweeps[sweep]])
-
-    # Extract central longitude and latitude from file
-    cent_lon = f.sweeps[0][0][1].lon
-    cent_lat = f.sweeps[0][0][1].lat
-
-    data = np.ma.array(ref)
-    data[np.isnan(data)] = np.ma.masked
-
-    packed = msgpack.packb(
-        {
-        'cent_lon': cent_lon,
-        'cent_lat': cent_lat,
-        'az': az.m_as('degrees').tolist(),
-        'ref_range': ref_range.m_as('meters').tolist(),
-        'data': data.tolist(),
-        'timestamp': timestamp,
-        }
-    )
+    timeStart = time.monotonic()
+    if cache.has(f"{station}/{sweep}/{timestamp}"):
+        logging.info("Cache hit")
+        packed = cache.get(f"{station}/{sweep}/{timestamp}")
+        downloadCompleteTime = time.monotonic()
+    else:
+        obj = get_specific_radar_scan(station, timestamp)
+        f = Level2File(obj['Body'])
+        downloadCompleteTime = time.monotonic()
+        packed = process(f, sweep, timestamp)
+        cache.set(f"{station}/{sweep}/{timestamp}", packed)
+    timeEnd = time.monotonic()
+    logging.info(f"get_radar took {datetime.timedelta(seconds=timeEnd - timeStart)}")
+    logging.info(f"get_radar download took {datetime.timedelta(seconds=downloadCompleteTime - timeStart)}")
 
     return packed, 200, {'Content-Type': 'application/msgpack'}
 
