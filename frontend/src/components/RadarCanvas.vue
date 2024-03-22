@@ -53,6 +53,8 @@ export default defineComponent({
       this.scannerCancel();
     }
     window.worker.removeEventListener('message', this.eventListener);
+    this.app!.stage.removeChildren();
+    this.app?.destroy();
   },
   mounted() {
     const canvas = document.createElement('canvas');
