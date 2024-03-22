@@ -1,12 +1,7 @@
+/// <reference path="./radar.d.ts" />
+
 import axios from 'axios';
 import { decode } from '@msgpack/msgpack';
-
-type radarScan = {
-  xlocs: number[];
-  ylocs: number[];
-  data: number[];
-  timestamp: number;
-}
 
 class RadarListener extends EventTarget {
   private timestamp: number;
@@ -76,55 +71,55 @@ export const getScan = async (station: string, sweep: number): Promise<radarScan
   return decode(dataResponse.data) as radarScan;
 };
 
-export const colormap = (value: number): string => {
+export const colormap = (value: number): number => {
   if (value <= -30) {
-    return '#764fab';
+    return 0x764fab;
   } else if (value <= -25) {
-    return '#7c689a';
+    return 0x7c689a;
   } else if (value <= -20) {
-    return '#86818e';
+    return 0x86818e;
   } else if (value <= -15) {
-    return '#aeaea3';
+    return 0xaeaea3;
   } else if (value <= -10) {
-    return '#cccc99';
+    return 0xcccc99;
   } else if (value <= -5) {
-    return '#9ba1a6';
+    return 0x9ba1a6;
   } else if (value <= 0) {
-    return '#77819d';
+    return 0x77819d;
   } else if (value <= 5) {
-    return '#5a6c9f';
+    return 0x5a6c9f;
   } else if (value <= 10) {
-    return '#405aa0';
+    return 0x405aa0;
   } else if (value <= 15) {
-    return '#419b96';
+    return 0x419b96;
   } else if (value <= 20) {
-    return '#40d38d';
+    return 0x40d38d;
   } else if (value <= 25) {
-    return '#20af45';
+    return 0x20af45;
   } else if (value <= 30) {
-    return '#018d01';
+    return 0x018d01;
   } else if (value <= 35) {
-    return '#83b100';
+    return 0x83b100;
   } else if (value <= 40) {
-    return '#eed000';
+    return 0xeed000;
   } else if (value <= 45) {
-    return '#f6ad00';
+    return 0xf6ad00;
   } else if (value <= 50) {
-    return '#f70000';
+    return 0xf70000;
   } else if (value <= 55) {
-    return '#df0000';
+    return 0xdf0000;
   } else if (value <= 60) {
-    return '#ffc9ff';
+    return 0xffc9ff;
   } else if (value <= 65) {
-    return '#ffabfb';
+    return 0xffabfb;
   } else if (value <= 70) {
-    return '#ad00ff';
+    return 0xad00ff;
   } else if (value <= 75) {
-    return '#a200f9';
+    return 0xa200f9;
   } else if (value <= 80) {
-    return '#00e1ec';
+    return 0x00e1ec;
   } else {
-    return '#3333cc';
+    return 0x3333cc;
   }
 };
 

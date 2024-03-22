@@ -73,12 +73,12 @@ def get_radar(station, sweep, timestamp):
     data = np.ma.array(ref)
     data[np.isnan(data)] = np.ma.masked
 
-    xlocs, ylocs = metpy.calc.azimuth_range_to_lat_lon(az, ref_range, cent_lon, cent_lat)
-
     packed = msgpack.packb(
         {
-        'xlocs': xlocs.tolist(),
-        'ylocs': ylocs.tolist(),
+        'cent_lon': cent_lon,
+        'cent_lat': cent_lat,
+        'az': az.m_as('degrees').tolist(),
+        'ref_range': ref_range.m_as('meters').tolist(),
         'data': data.tolist(),
         'timestamp': timestamp,
         }

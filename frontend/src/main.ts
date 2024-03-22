@@ -16,6 +16,7 @@ import 'primeicons/primeicons.css';
 import 'primevue/resources/primevue.min.css';
 
 import './assets/main.css';
+import './pyodide';
 
 const pinia = createPinia();
 const app = createApp(App);

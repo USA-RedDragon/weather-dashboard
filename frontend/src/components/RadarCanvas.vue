@@ -1,21 +1,18 @@
 <template>
-  <div>
-    <canvas id="radarCanvas"></canvas>
+  <div id="canvasWrapper">
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import * as d3 from 'd3';
+import * as PIXI from 'pixi.js';
 
 import * as radar from '../services/radar';
-import type radarScan from '../services/radar';
 
 type data = {
-  context: CanvasRenderingContext2D | null;
   currentTimestamp: Date | string;
   scannerCancel: (() => void) | null;
-  canvas: d3.Selection<d3.BaseType, unknown, HTMLElement, any> | null;
+  app: PIXI.Application | null;
 }
 
 export default defineComponent({
@@ -40,10 +37,9 @@ export default defineComponent({
   emits: ['timestamp'],
   data: function(): data {
     return {
-      context: null,
       currentTimestamp: 'Loading...',
       scannerCancel: null,
-      canvas: null,
+      app: null,
     };
   },
   unmounted() {
@@ -52,19 +48,17 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.canvas = d3.select('#radarCanvas')
-      .attr('height', `${this.height}`)
-      .attr('width', `${this.width}`);
-    if (!this.canvas) {
-      console.error('Failed to get canvas');
-      return;
-    }
-    const node = this.canvas.node() as HTMLCanvasElement;
-    if (!node) {
-      console.error('Failed to get canvas node');
-      return;
-    }
-    this.context = node.getContext('2d');
+    const canvas = document.createElement('canvas');
+    canvas.id = 'radarCanvas';
+    document.getElementById('canvasWrapper')?.appendChild(canvas);
+    const view = canvas.transferControlToOffscreen();
+    this.app = new PIXI.Application({
+      backgroundAlpha: 0,
+      antialias: true,
+      width: this.width,
+      height: this.height,
+      view: (view as any),
+    });
     this.draw();
   },
   watch: {
@@ -78,28 +72,42 @@ export default defineComponent({
     },
     width: function() {
       this.$emit('timestamp', 'Adjusting...');
-      this.canvas?.attr('width', `${this.width}`);
+      // this.canvas?.attr('width', `${this.width}`);
       this.draw();
     },
     height: function() {
       this.$emit('timestamp', 'Adjusting...');
-      this.canvas?.attr('height', `${this.height}`);
+      // this.canvas?.attr('height', `${this.height}`);
       this.draw();
     },
   },
   methods: {
     async draw(scan: radarScan | null = null): Promise<void> {
-      this.context?.clearRect(0, 0, this.width, this.height);
-      let radarPromise = new Promise<radarScan>((resolve) => {
+      while (window['pyodide'] === undefined) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      let radarPromise = new Promise<radarScan | null>((resolve) => {
         resolve(scan);
       });
       if (!scan) {
         radarPromise = radar.getScan('ktlx', this.sweep);
       }
       const radarData = await radarPromise;
+      if (!radarData) {
+        return;
+      }
       this.currentTimestamp = new Date(radarData.timestamp * 1000);
+      this.app!.stage.removeChildren();
+
+      const [xlocs, ylocs] = (window.pyodide.azimuthRangeToLatLon(
+        radarData.az,
+        radarData.ref_range,
+        radarData.cent_lon,
+        radarData.cent_lat,
+      ).toJs() as [number[][], number[][]]);
+
+      this.drawRadar(xlocs, ylocs, radarData.data);
       this.$emit('timestamp', this.currentTimestamp);
-      this.drawRadar(radarData);
 
       if (this.scannerCancel) {
         this.scannerCancel();
@@ -112,58 +120,34 @@ export default defineComponent({
         });
       }
     },
-    drawRadar(data: radarScan) {
-      if (!this.context) {
-        console.error('context is null');
+    drawRadar(xlocs: number[][], ylocs: number[][], data: number[][]): void {
+      if (!this.app) {
+        console.error('app is null');
         return;
       }
 
-      // xlocs and ylocs are 2-dimensional arrays where:
-      // - (X[i, j], Y[i, j]) is the bottom left of the polgon
-      // - (X[i, j + 1], Y[i, j + 1]) is the bottom right of the polygon
-      // - (X[i + 1, j], Y[i + 1, j]) is the top left of the polygon
-      // - (X[i + 1, j + 1], Y[i + 1, j + 1]) is the top right of the polygon
-      //
-      // X = [
-      //   [10, 20],
-      // ]
-      // Y = [
-      //   [40, 50],
-      // ]
-      // This results in the following quadrilateral polygon:
-      // - (10, 40) bottom left
-      // - (20, 40) bottom right
-      // - (10, 50) top left
-      // - (20, 50) top right
-
-      // data is a 2-dimensional array where the index corresponds to the polygon at the same index in xlocs and ylocs
-      //
-      // data = [
-      //   [0.3, 0.5],
-      // ]
-      // This results in the following:
-      // - The polygon at (0, 1) has a value of 0.5
-
-      for (let i = 0; i < data.xlocs.length-1; i++) {
-        for (let j = 0; j < data.ylocs.length-1; j++) {
-          const bottomLeft = this.projection([data.xlocs[i][j], data.ylocs[i][j]]);
-          const bottomRight = this.projection([data.xlocs[i][j + 1], data.ylocs[i][j + 1]]);
-          const topLeft = this.projection([data.xlocs[i + 1][j], data.ylocs[i + 1][j]]);
-          const topRight = this.projection([data.xlocs[i + 1][j + 1], data.ylocs[i + 1][j + 1]]);
-          const value = data.data[i][j];
+      const graphics = new PIXI.Graphics();
+      for (let i = 0; i < xlocs.length-1; i++) {
+        for (let j = 0; j < ylocs.length-1; j++) {
+          const bottomLeft = this.projection([xlocs[i][j], ylocs[i][j]]);
+          const bottomRight = this.projection([xlocs[i][j + 1], ylocs[i][j + 1]]);
+          const topLeft = this.projection([xlocs[i + 1][j], ylocs[i + 1][j]]);
+          const topRight = this.projection([xlocs[i + 1][j + 1], ylocs[i + 1][j + 1]]);
+          const value = data[i][j];
 
           if (value) {
-            this.context.beginPath();
-            this.context.moveTo(bottomLeft[0], bottomLeft[1]);
-            this.context.lineTo(bottomRight[0], bottomRight[1]);
-            this.context.lineTo(topRight[0], topRight[1]);
-            this.context.lineTo(topLeft[0], topLeft[1]);
-            this.context.lineTo(bottomLeft[0], bottomLeft[1]);
-            this.context.fillStyle = radar.colormap(value);
-            this.context.fill();
+            graphics.lineStyle(0)
+              .beginFill(radar.colormap(value), 0.75)
+              .moveTo(bottomLeft[0], bottomLeft[1])
+              .lineTo(bottomRight[0], bottomRight[1])
+              .lineTo(topRight[0], topRight[1])
+              .lineTo(topLeft[0], topLeft[1])
+              .lineTo(bottomLeft[0], bottomLeft[1])
+              .endFill();
           }
         }
       }
+      this.app.stage.addChild(graphics);
     },
   },
 });
@@ -173,6 +157,6 @@ export default defineComponent({
 #radarCanvas {
   z-index: 100;
   height: 100%;
-  width: 100%
+  width: 100%;
 }
 </style>

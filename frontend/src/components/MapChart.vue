@@ -1,6 +1,16 @@
 <template>
   <div>
-    <p v-if="radar">Radar Scan: {{currentTimestamp.toString()}}</p>
+    <div v-if="radar">
+      <p>Radar Scan: {{currentTimestamp.toString()}}</p>
+      <br />
+      <p>Sweep Angle</p>
+      <!-- @vue-expect-error PrimeVue doesn't have the proper
+          type, only Nullable<string>, but passing a string
+          value breaks the component -->
+      <InputText v-model="sweep" class="w-14rem"></InputText>
+      <Slider v-model="sweep" :step="1" :max="7" class="w-14rem"></Slider>
+      <br />
+    </div>
     <div class="layered">
       <canvas></canvas>
       <RadarCanvas
@@ -10,10 +20,6 @@
         :sweep="sweep"
         :width="width"
         :height="height" />
-    </div>
-    <div v-if="radar">
-      <InputText v-model.number="sweep" />
-      <Slider v-model="sweep" :step="1" :max="7" class="w-14rem"></Slider>
     </div>
   </div>
 </template>
