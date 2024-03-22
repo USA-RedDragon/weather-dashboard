@@ -10,7 +10,7 @@ async function cacheDep(cache: Cache, name: string) {
   await cache.put(request, dataResponse.clone());
 }
 
-(async () => {
+export async function getFunctions(): Promise<{[key: string]: Function}> {
   const cache = await caches.open(`pyodide`);
 
   await Promise.all([
@@ -38,8 +38,7 @@ async function cacheDep(cache: Cache, name: string) {
       return lon.tolist(), lat.tolist()
   `);
 
-  window.pyodide = {
-    pyodide: _pyodide,
+  return {
     azimuthRangeToLatLon: _pyodide.globals.get('azimuth_range_to_lat_lon') as Function,
   };
-})();
+};

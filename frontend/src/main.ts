@@ -16,7 +16,12 @@ import 'primeicons/primeicons.css';
 import 'primevue/resources/primevue.min.css';
 
 import './assets/main.css';
-import './pyodide';
+
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module',
+});
+
+window.worker = worker;
 
 const pinia = createPinia();
 const app = createApp(App);

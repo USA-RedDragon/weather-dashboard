@@ -4,6 +4,7 @@
 </template>
 
 <script lang="ts">
+/// <reference path="../../worker.d.ts" />
 import { defineComponent } from 'vue';
 import * as PIXI from 'pixi.js';
 
@@ -13,6 +14,7 @@ type data = {
   currentTimestamp: Date | string;
   scannerCancel: (() => void) | null;
   app: PIXI.Application | null;
+  drawing: boolean;
 }
 
 export default defineComponent({
@@ -40,12 +42,17 @@ export default defineComponent({
       currentTimestamp: 'Loading...',
       scannerCancel: null,
       app: null,
+      drawing: false,
     };
+  },
+  created() {
+    window.worker.addEventListener('message', this.eventListener);
   },
   unmounted() {
     if (this.scannerCancel) {
       this.scannerCancel();
     }
+    window.worker.removeEventListener('message', this.eventListener);
   },
   mounted() {
     const canvas = document.createElement('canvas');
@@ -82,32 +89,16 @@ export default defineComponent({
     },
   },
   methods: {
-    async draw(scan: radarScan | null = null): Promise<void> {
-      while (window['pyodide'] === undefined) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      let radarPromise = new Promise<radarScan | null>((resolve) => {
-        resolve(scan);
-      });
-      if (!scan) {
-        radarPromise = radar.getScan('ktlx', this.sweep);
-      }
-      const radarData = await radarPromise;
-      if (!radarData) {
+    eventListener(e: MessageEvent) {
+      const event = e.data as Message;
+      if (event.type !== 'azimuthRangeToLatLon') {
+        this.drawing = false;
         return;
       }
-      this.currentTimestamp = new Date(radarData.timestamp * 1000);
-      this.app!.stage.removeChildren();
-
-      const [xlocs, ylocs] = (window.pyodide.azimuthRangeToLatLon(
-        radarData.az,
-        radarData.ref_range,
-        radarData.cent_lon,
-        radarData.cent_lat,
-      ).toJs() as [number[][], number[][]]);
-
-      this.drawRadar(xlocs, ylocs, radarData.data);
+      const data = event.payload as azimuthRangeToLatLonResult;
+      this.drawRadar(data.xlocs, data.ylocs, data.data);
       this.$emit('timestamp', this.currentTimestamp);
+      this.drawing = false;
 
       if (this.scannerCancel) {
         this.scannerCancel();
@@ -120,12 +111,42 @@ export default defineComponent({
         });
       }
     },
+    async draw(scan: radarScan | null = null): Promise<void> {
+      if (this.drawing) {
+        return;
+      }
+      this.drawing = true;
+      let radarPromise = new Promise<radarScan | null>((resolve) => {
+        resolve(scan);
+      });
+      if (!scan) {
+        radarPromise = radar.getScan('ktlx', this.sweep);
+      }
+      const radarData = await radarPromise;
+      if (!radarData) {
+        this.drawing = false;
+        return;
+      }
+      this.currentTimestamp = new Date(radarData.timestamp * 1000);
+
+      window.worker.postMessage({
+        type: 'azimuthRangeToLatLon',
+        payload: {
+          azimuths: radarData.az,
+          ranges: radarData.ref_range,
+          center_lon: radarData.cent_lon,
+          center_lat: radarData.cent_lat,
+          data: radarData.data,
+        },
+      });
+    },
     drawRadar(xlocs: number[][], ylocs: number[][], data: number[][]): void {
       if (!this.app) {
         console.error('app is null');
         return;
       }
 
+      this.app!.stage.removeChildren();
       const graphics = new PIXI.Graphics();
       for (let i = 0; i < xlocs.length-1; i++) {
         for (let j = 0; j < ylocs.length-1; j++) {
