@@ -4,7 +4,7 @@
 </template>
 
 <script lang="ts">
-/// <reference path="../../worker.d.ts" />
+/// <reference path="../worker.d.ts" />
 import { defineComponent } from 'vue';
 import * as PIXI from 'pixi.js';
 
