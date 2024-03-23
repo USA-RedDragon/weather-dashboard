@@ -1,14 +1,14 @@
 <template>
   <div>
     <div v-if="radar">
-      <p>Radar Scan: {{currentTimestamp.toString()}}</p>
+      <p>Radar Scan: <span v-if="!loading">{{currentTimestamp.toString()}}</span><span v-else>Loading...</span></p>
       <br />
       <p>Sweep Angle</p>
       <!-- @vue-expect-error PrimeVue doesn't have the proper
           type, only Nullable<string>, but passing a string
           value breaks the component -->
-      <InputText v-model.number="sweep" class="w-14rem"></InputText>
-      <Slider v-model="sweep" :step="1" :max="7" class="w-14rem"></Slider>
+      <InputNumber :disabled="loading" v-model.number="sweep" :max="7" :min="0" class="w-14rem"></InputNumber>
+      <Slider @change="loading = true" :disabled="loading" v-model="sweep" :step="1" :max="7" class="w-14rem"></Slider>
       <br />
     </div>
     <div class="layered">
@@ -16,6 +16,8 @@
       <RadarCanvas
         v-if="radar"
         @timestamp="updateTimestamp"
+        @loading="loading = $event.value ; $nextTick($event.callback)"
+        :loading="loading"
         :projection="projection"
         :sweep="sweep"
         :width="width"
@@ -27,7 +29,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import * as d3 from 'd3';
-import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import Slider from 'primevue/slider';
 import { getGeoJSON } from '../services/geojson';
 import RadarCanvas from './RadarCanvas.vue';
@@ -36,7 +38,8 @@ type data = {
   height: number;
   width: number;
   sweep: number;
-  currentTimestamp: string | Date;
+  loading: boolean;
+  currentTimestamp: Date;
   projection: d3.GeoProjection;
   geoGenerator: d3.GeoPath | null;
   canvas: d3.Selection<d3.BaseType, unknown, HTMLElement, any> | null;
@@ -52,7 +55,7 @@ type drawGeoJSONOptions = {
 
 export default defineComponent({
   components: {
-    InputText,
+    InputNumber,
     Slider,
     RadarCanvas,
   },
@@ -86,9 +89,10 @@ export default defineComponent({
       height: 1080,
       width: 1920,
       sweep: 0,
+      loading: true,
       projection: d3.geoEquirectangular(),
       geoGenerator: null,
-      currentTimestamp: 'Loading...',
+      currentTimestamp: new Date(0),
       canvas: null,
       context: null,
     };
@@ -118,7 +122,7 @@ export default defineComponent({
         await this.drawState();
       }
     },
-    updateTimestamp(ts: string | Date) {
+    updateTimestamp(ts: Date) {
       this.currentTimestamp = ts;
     },
     drawGeoJSON(options: drawGeoJSONOptions) {

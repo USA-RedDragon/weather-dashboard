@@ -1,25 +1,59 @@
 import calendar
 import datetime
-import os
+import json
 import logging
+import os
+import queue
 import time
 
 from flask import Flask, send_file, jsonify
-import metpy
+from flask_sock import Sock
+from simple_websocket import ConnectionClosed
 from metpy.io import Level2File
 
 
 from .radar import get_radar_scan_time, extract_timestamp, get_specific_radar_scan, process
 from .cache import Cache
-
-app = Flask(__name__)
-cache = Cache()
+from .radar_watcher import RadarWatcher
 
 dataTypes = ["coastline", "states", "lakes", "rivers", "freeways", "oklahomaCounties", "oklahomaLakes", "oklahomaStreams"]
+
+app = Flask(__name__)
+app.config['SOCK_SERVER_OPTIONS'] = {'ping_interval': 25}
+websocket = Sock(app)
+cache = Cache()
+watcher = RadarWatcher(cache)
+
+watcher.start("KTLX")
 
 # @app.errorhandler(Exception)
 # def exception_handler(error):
 #     return "!!!!"  + repr(error)
+
+@websocket.route('/ws/watch/station/<station>')
+def watch_station(ws, station):
+    q = queue.Queue()
+    eventListener = lambda station, ts: q.put(json.dumps({"station": station, "timestamp": ts}))
+    watcher.add_event_listener(eventListener, station)
+    if not watcher.is_watching(station):
+        watcher.start(station)
+    ws.send('PONG')
+    while True:
+        try:
+            data = ws.receive(timeout=2)
+            if data == 'close':
+                break
+            elif data == 'PING':
+                ws.send('PONG')
+            try:
+                data = q.get_nowait()
+            except queue.Empty:
+                continue
+            else:
+                ws.send(data)
+        except ConnectionClosed:
+            break
+    watcher.remove_event_listener(eventListener, station)
 
 @app.route("/api/geojson/<data>/<version>", methods=["GET"])
 def get_geojson(data, version):

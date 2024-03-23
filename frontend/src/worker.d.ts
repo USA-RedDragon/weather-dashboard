@@ -16,3 +16,5 @@ type azimuthRangeToLatLonResult = {
     ylocs: number[][];
     data: number[][];
 };
+
+declare module 'great-circle-cursor';

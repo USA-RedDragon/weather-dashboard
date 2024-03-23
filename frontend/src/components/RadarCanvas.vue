@@ -9,12 +9,13 @@ import { defineComponent } from 'vue';
 import * as PIXI from 'pixi.js';
 
 import * as radar from '../services/radar';
+import { Websocket, connectWebsocket } from '../services/websocket';
+import { getWebsocketURI } from '../services/util';
 
 type data = {
-  currentTimestamp: Date | string;
-  scannerCancel: (() => void) | null;
+  currentTimestamp: Date;
   app: PIXI.Application | null;
-  drawing: boolean;
+  socket: Websocket | null;
 }
 
 export default defineComponent({
@@ -35,28 +36,36 @@ export default defineComponent({
       type: Number,
       default: 0,
     },
+    loading: {
+      type: Boolean,
+      default: true,
+    },
   },
-  emits: ['timestamp'],
+  emits: ['timestamp', 'loading'],
   data: function(): data {
     return {
-      currentTimestamp: 'Loading...',
-      scannerCancel: null,
+      currentTimestamp: new Date(0),
       app: null,
-      drawing: false,
+      socket: null,
     };
   },
-  created() {
-    window.worker.addEventListener('message', this.eventListener);
-  },
   unmounted() {
-    if (this.scannerCancel) {
-      this.scannerCancel();
-    }
+    this.socket?.cleanup();
     window.worker.removeEventListener('message', this.eventListener);
     this.app!.stage.removeChildren();
     this.app?.destroy();
   },
   mounted() {
+    window.worker.addEventListener('message', this.eventListener);
+    this.socket = connectWebsocket(getWebsocketURI('/watch/station/ktlx'), (event: MessageEvent) => {
+      const data = JSON.parse(event.data) as {
+        timestamp: number;
+        station: string;
+      };
+      console.log(`Received data from websocket: ${data.timestamp} ${data.station}`);
+      this.$emit('loading', { value: true, callback: () => {} });
+      this.draw();
+    });
     const canvas = document.createElement('canvas');
     canvas.id = 'radarCanvas';
     document.getElementById('canvasWrapper')?.appendChild(canvas);
@@ -72,52 +81,29 @@ export default defineComponent({
   },
   watch: {
     sweep: function() {
-      this.$emit('timestamp', 'Loading...');
-      this.draw();
+      this.$emit('loading', { value: true, callback: this.draw });
     },
     projection: function() {
-      this.$emit('timestamp', 'Adjusting...');
-      this.draw();
+      this.$emit('loading', { value: true, callback: this.draw });
     },
     width: function() {
-      this.$emit('timestamp', 'Adjusting...');
-      // this.canvas?.attr('width', `${this.width}`);
-      this.draw();
+      this.$emit('loading', { value: true, callback: this.draw });
     },
     height: function() {
-      this.$emit('timestamp', 'Adjusting...');
-      // this.canvas?.attr('height', `${this.height}`);
-      this.draw();
+      this.$emit('loading', { value: true, callback: this.draw });
     },
   },
   methods: {
     eventListener(e: MessageEvent) {
       const event = e.data as Message;
       if (event.type !== 'azimuthRangeToLatLon') {
-        this.drawing = false;
         return;
       }
       const data = event.payload as azimuthRangeToLatLonResult;
       this.drawRadar(data.xlocs, data.ylocs, data.data);
       this.$emit('timestamp', this.currentTimestamp);
-      this.drawing = false;
-
-      if (this.scannerCancel) {
-        this.scannerCancel();
-      }
-      if (!this.scannerCancel) {
-        const ts = (this.currentTimestamp as unknown) as number;
-        this.scannerCancel = radar.listenForNewScan('ktlx', this.sweep, ts, (scan: radarScan) => {
-          this.$emit('timestamp', 'Loading...');
-          this.draw(scan);
-        });
-      }
     },
     async draw(scan: radarScan | null = null): Promise<void> {
-      if (this.drawing) {
-        return;
-      }
-      this.drawing = true;
       let radarPromise = new Promise<radarScan | null>((resolve) => {
         resolve(scan);
       });
@@ -126,7 +112,6 @@ export default defineComponent({
       }
       const radarData = await radarPromise;
       if (!radarData) {
-        this.drawing = false;
         return;
       }
       this.currentTimestamp = new Date(radarData.timestamp * 1000);
@@ -148,7 +133,6 @@ export default defineComponent({
         return;
       }
 
-      this.app!.stage.removeChildren();
       const graphics = new PIXI.Graphics();
       for (let i = 0; i < xlocs.length-1; i++) {
         for (let j = 0; j < ylocs.length-1; j++) {
@@ -170,6 +154,7 @@ export default defineComponent({
           }
         }
       }
+      this.app.stage.removeChildren();
       this.app.stage.addChild(graphics);
     },
   },
