@@ -53,7 +53,6 @@ export default defineComponent({
     this.socket?.cleanup();
     window.worker.removeEventListener('message', this.eventListener);
     this.app!.stage.removeChildren();
-    this.app?.destroy();
   },
   mounted() {
     window.worker.addEventListener('message', this.eventListener);
@@ -102,6 +101,7 @@ export default defineComponent({
       const data = event.payload as azimuthRangeToLatLonResult;
       this.drawRadar(data.xlocs, data.ylocs, data.data);
       this.$emit('timestamp', this.currentTimestamp);
+      this.$emit('loading', { value: false, callback: () => {} });
     },
     async draw(scan: radarScan | null = null): Promise<void> {
       let radarPromise = new Promise<radarScan | null>((resolve) => {

@@ -26,8 +26,17 @@ export class Websocket {
   }
 
   cleanup() {
-    this.socket?.send('close');
-    this.socket?.close();
+    if (this.socket) {
+      try {
+        this.socket?.send('close');
+      } catch (e: any) {
+        if (e.name !== 'DOMException') {
+          throw e;
+        }
+        console.log('Socket already closed');
+      }
+      this.socket?.close();
+    }
   }
 
   onWebsocketOpen() {
@@ -69,7 +78,7 @@ export class Websocket {
       this.connected = true;
       if (event.data == 'PONG') {
         setTimeout(() => {
-          this.socket!.send('PING');
+          this.socket?.send('PING');
         }, 1000);
         return;
       } else {
