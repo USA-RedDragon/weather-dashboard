@@ -28,7 +28,7 @@ export class Websocket {
   cleanup() {
     if (this.socket) {
       try {
-        this.socket?.send('close');
+        this.socket.send('close');
       } catch (e: any) {
         if (e.name !== 'DOMException') {
           throw e;

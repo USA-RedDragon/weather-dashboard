@@ -27,7 +27,9 @@
 </template>
 
 <script lang="ts">
+/// <reference path="../services/alerts.d.ts" />
 import { defineComponent } from 'vue';
+import axios from 'axios';
 import * as d3 from 'd3';
 import InputNumber from 'primevue/inputnumber';
 import Slider from 'primevue/slider';
@@ -44,6 +46,7 @@ type data = {
   geoGenerator: d3.GeoPath | null;
   canvas: d3.Selection<d3.BaseType, unknown, HTMLElement, any> | null;
   context: CanvasRenderingContext2D | null;
+  alerts: WXAlert[];
 }
 
 type drawGeoJSONOptions = {
@@ -95,9 +98,14 @@ export default defineComponent({
       currentTimestamp: new Date(0),
       canvas: null,
       context: null,
+      alerts: [],
     };
   },
   mounted() {
+    axios.get('/api/alerts/ok').then((response) => {
+      this.alerts = response.data as WXAlert[];
+      this.draw();
+    });
     this.canvas = d3.select('canvas')
       .attr('height', `${this.height}`)
       .attr('width', `${this.width}`);
@@ -120,6 +128,33 @@ export default defineComponent({
         await this.drawCountry();
       } else if (this.state) {
         await this.drawState();
+      }
+    },
+    drawAlerts() {
+      for (let i=0; i<this.alerts.length; i++) {
+        const alert = this.alerts[i];
+        if (!alert.geometry) {
+          continue;
+        }
+        console.log(this.hexToRGB(alert.color, 1));
+
+        this.drawGeoJSON({
+          stroke: alert.is_weather ? this.hexToRGB(alert.color, 1):'rgba(0, 0, 0, 1)',
+          strokeWidth: '1',
+          fill: alert.is_weather ? 'rgba(0, 0, 0, 0)':this.hexToRGB(alert.color, 1),
+          data: alert.geometry,
+        });
+      }
+    },
+    hexToRGB(hex: string, alpha: number) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+
+      if (alpha) {
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+      } else {
+        return 'rgb(' + r + ', ' + g + ', ' + b + ')';
       }
     },
     updateTimestamp(ts: Date) {
@@ -165,6 +200,7 @@ export default defineComponent({
       const oklahomaStreamsPromise = getGeoJSON('oklahomaStreams');
 
       return this.drawFeatures().then(() => {
+        this.drawAlerts();
         // Callback hell to allow parallel loading of geojson but
         // still draw them in the correct order
         return oklahomaCountiesPromise.then((oklahomaCounties) => {

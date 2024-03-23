@@ -12,8 +12,9 @@ from simple_websocket import ConnectionClosed
 from metpy.io import Level2File
 
 
-from .radar import get_radar_scan_time, extract_timestamp, get_specific_radar_scan, process
+from .alert import get_alerts
 from .cache import Cache
+from .radar import get_radar_scan_time, extract_timestamp, get_specific_radar_scan, process
 from .radar_watcher import RadarWatcher
 
 dataTypes = ["coastline", "states", "lakes", "rivers", "freeways", "oklahomaCounties", "oklahomaLakes", "oklahomaStreams"]
@@ -29,6 +30,10 @@ watcher.start("KTLX")
 # @app.errorhandler(Exception)
 # def exception_handler(error):
 #     return "!!!!"  + repr(error)
+
+@websocket.route('/ws/alerts/<state>')
+def watch_alerts(ws, state):
+    pass
 
 @websocket.route('/ws/watch/station/<station>')
 def watch_station(ws, station):
@@ -54,6 +59,10 @@ def watch_station(ws, station):
         except ConnectionClosed:
             break
     watcher.remove_event_listener(eventListener, station)
+
+@app.route("/api/alerts/<state>", methods=["GET"])
+def get_state_alerts(state):
+    return jsonify(get_alerts(cache, state))
 
 @app.route("/api/geojson/<data>/<version>", methods=["GET"])
 def get_geojson(data, version):
