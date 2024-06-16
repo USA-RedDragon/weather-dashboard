@@ -20,7 +20,7 @@ MarkupSafe==2.1.5
 matplotlib==3.9.0
 MetPy==1.6.2
 msgpack==1.0.8
-numpy==1.26.4
+numpy==2.0.0
 packaging==24.1
 pandas==2.2.2
 pillow==10.3.0
