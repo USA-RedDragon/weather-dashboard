@@ -24,7 +24,7 @@ numpy==2.0.0
 packaging==24.1
 pandas==2.2.2
 pillow==10.4.0
-Pint==0.24.1
+Pint==0.24.3
 platformdirs==4.2.2
 pooch==1.8.2
 pyparsing==3.1.2
