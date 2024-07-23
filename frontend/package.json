@@ -68,7 +68,7 @@
     "typescript": "~5.5.4",
     "vite": "^5.3.4",
     "vite-plugin-mkcert": "^1.17.5",
-    "vite-plugin-vue-devtools": "^7.3.6",
+    "vite-plugin-vue-devtools": "^7.3.7",
     "vitest": "^2.0.4",
     "vue-tsc": "^2.0.28"
   }
