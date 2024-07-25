@@ -70,6 +70,6 @@
     "vite-plugin-mkcert": "^1.17.5",
     "vite-plugin-vue-devtools": "^7.3.7",
     "vitest": "^2.0.4",
-    "vue-tsc": "^2.0.28"
+    "vue-tsc": "^2.0.29"
   }
 }
