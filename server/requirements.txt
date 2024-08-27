@@ -4,7 +4,7 @@ botocore==1.35.7
 certifi==2024.7.4
 charset-normalizer==3.3.2
 click==8.1.7
-contourpy==1.2.1
+contourpy==1.3.0
 cycler==0.12.1
 Flask==3.0.3
 flask-sock==0.7.0
