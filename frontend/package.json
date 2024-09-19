@@ -63,7 +63,7 @@
     "mochawesome-report-generator": "^6.2.0",
     "npm-run-all2": "^6.2.3",
     "prettier": "^3.3.3",
-    "sass": "^1.79.1",
+    "sass": "^1.79.2",
     "start-server-and-test": "^2.0.8",
     "typescript": "~5.6.2",
     "vite": "^5.4.6",
