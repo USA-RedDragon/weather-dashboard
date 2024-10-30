@@ -34,7 +34,7 @@ python-dateutil==2.9.0.post0
 pytz==2024.2
 redis==5.1.0
 requests==2.32.3
-s3transfer==0.10.2
+s3transfer==0.10.3
 scipy==1.14.1
 shapely==2.0.6
 simple-websocket==1.0.0
