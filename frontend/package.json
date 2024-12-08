@@ -50,7 +50,7 @@
     "@vue/tsconfig": "^0.7.0",
     "cypress": "^13.16.1",
     "cypress-mochawesome-reporter": "^3.8.2",
-    "cypress-multi-reporters": "^1.6.4",
+    "cypress-multi-reporters": "^2.0.4",
     "eslint": "^8.57.1",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-cypress": "^3.6.0",
