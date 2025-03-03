@@ -34,7 +34,7 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
-    "@msgpack/msgpack": "^3.0.1",
+    "@msgpack/msgpack": "^3.1.0",
     "@rushstack/eslint-patch": "^1.10.5",
     "@tsconfig/node20": "^20.1.4",
     "@types/d3": "^7.4.3",
