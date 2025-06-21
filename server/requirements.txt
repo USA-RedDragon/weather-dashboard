@@ -19,7 +19,7 @@ kiwisolver==1.4.8
 MarkupSafe==2.1.5
 matplotlib==3.10.3
 MetPy==1.7.0
-msgpack==1.1.0
+msgpack==1.1.1
 numpy==2.3.0
 packaging==24.2
 pandas==2.3.0
