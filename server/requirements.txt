@@ -32,7 +32,7 @@ pyproj==3.7.1
 python-awips==20.1
 python-dateutil==2.9.0.post0
 pytz==2024.2
-redis==5.3.0
+redis==5.3.1
 requests==2.32.4
 s3transfer==0.13.1
 scipy==1.16.0
