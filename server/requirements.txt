@@ -40,7 +40,7 @@ shapely==2.1.1
 simple-websocket==1.1.0
 six==1.17.0
 traitlets==5.14.3
-typing_extensions==4.14.1
+typing_extensions==4.15.0
 tzdata==2024.2
 urllib3==2.5.0
 Werkzeug==3.1.3
