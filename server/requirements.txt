@@ -18,7 +18,7 @@ jmespath==1.0.1
 kiwisolver==1.4.9
 MarkupSafe==2.1.5
 matplotlib==3.10.6
-MetPy==1.7.0
+MetPy==1.7.1
 msgpack==1.1.1
 numpy==2.3.2
 packaging==24.2
