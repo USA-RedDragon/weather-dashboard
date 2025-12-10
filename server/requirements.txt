@@ -17,7 +17,7 @@ Jinja2==3.1.6
 jmespath==1.0.1
 kiwisolver==1.4.9
 MarkupSafe==2.1.5
-matplotlib==3.10.7
+matplotlib==3.10.8
 MetPy==1.7.1
 msgpack==1.1.2
 numpy==2.3.5
