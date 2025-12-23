@@ -27,7 +27,7 @@ pillow==10.4.0
 Pint==0.25.2
 platformdirs==4.5.1
 pooch==1.8.2
-pyparsing==3.3.0
+pyparsing==3.3.1
 pyproj==3.7.2
 python-awips==20.1
 python-dateutil==2.9.0.post0
