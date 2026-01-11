@@ -23,7 +23,7 @@ msgpack==1.1.2
 numpy==2.4.1
 packaging==24.2
 pandas==2.3.3
-pillow==10.4.0
+pillow==11.3.0
 Pint==0.25.2
 platformdirs==4.5.1
 pooch==1.8.2
