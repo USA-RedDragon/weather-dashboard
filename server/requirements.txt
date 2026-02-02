@@ -21,7 +21,7 @@ matplotlib==3.10.8
 MetPy==1.7.1
 msgpack==1.1.2
 numpy==2.4.2
-packaging==24.2
+packaging==25.0
 pandas==2.3.3
 pillow==10.4.0
 Pint==0.25.2
