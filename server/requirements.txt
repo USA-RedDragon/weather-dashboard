@@ -29,7 +29,7 @@ platformdirs==4.9.6
 pooch==1.9.0
 pyparsing==3.3.2
 pyproj==3.7.2
-python-awips==20.1
+python-awips==23.1.1
 python-dateutil==2.9.0.post0
 pytz==2024.2
 redis==5.3.1
