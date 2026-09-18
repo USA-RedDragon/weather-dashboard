@@ -2,7 +2,7 @@ version: '3'
 
 services:
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine@sha256:bd999b5cfee25fb24b8320a31fddbd69f462df44c8138c66e369582937beebc0
     restart: unless-stopped
     command: '--io-threads 2'
     ports:
